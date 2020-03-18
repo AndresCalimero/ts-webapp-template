@@ -1,0 +1,101 @@
+name: Publish
+
+on:
+  repository_dispatch:
+  release:
+    types:
+      - created
+
+jobs:
+  publish-docker:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get latest tag name
+        uses: octokit/request-action@v2.x
+        id: get_latest_release
+        with:
+          route: GET /repos/:repository/releases/latest
+          repository: ${{ github.repository }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Get latest tag name (parse JSON)
+        id: parse_get_latest_release
+        uses: gr2m/get-json-paths-action@v1.x
+        with:
+          json: ${{ steps.get_latest_release.outputs.data }}
+          tag_name: tag_name
+
+      - name: Checkout repository
+        uses: actions/checkout@v2
+        with:
+          ref: ${{ steps.parse_get_latest_release.outputs.tag_name }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v1
+        with:
+          node-version: '12'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build production bundle
+        run: npm run build
+
+      - name: Build and publish Docker image (latest)
+        uses: VaultVulp/gp-docker-action@1.0.1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          image-name: ${{ github.event.repository.name }}
+
+      - name: Build and publish Docker image (tag)
+        uses: VaultVulp/gp-docker-action@1.0.1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          image-name: ${{ github.event.repository.name }}
+          image-tag: ${{ steps.parse_get_latest_release.outputs.tag_name }}
+
+  publish-pages:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get latest tag name
+        uses: octokit/request-action@v2.x
+        id: get_latest_release
+        with:
+          route: GET /repos/:repository/releases/latest
+          repository: ${{ github.repository }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Get latest tag name (parse JSON)
+        id: parse_get_latest_release
+        uses: gr2m/get-json-paths-action@v1.x
+        with:
+          json: ${{ steps.get_latest_release.outputs.data }}
+          tag_name: tag_name
+
+      - name: Checkout repository
+        uses: actions/checkout@v2
+        with:
+          ref: ${{ steps.parse_get_latest_release.outputs.tag_name }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v1
+        with:
+          node-version: '12'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build production bundle
+        run: npm run build -- --public-url /${{ github.event.repository.name }}
+
+      - name: Publish to GitHub Pages
+        if: env.ACCESS_TOKEN != 0
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          personal_token: ${{ env.ACCESS_TOKEN }}
+          publish_dir: ./dist
+          enable_jekyll: false
+        env:
+          ACCESS_TOKEN: ${{ secrets.ACCESS_TOKEN }}
