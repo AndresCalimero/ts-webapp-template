@@ -1,6 +1,6 @@
 {
   "name": "@andrescalimero/ts-webapp-template",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "description": "Example of scaffolding for a web app using TypeScript and Parcel",
   "keywords": [],
   "source": "src/index.html",
